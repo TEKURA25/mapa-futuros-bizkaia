@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Futuros que se cultivan en Bizkaia</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    crossorigin=""
+  />
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Overlay para mostrar la ficha en grande */
+    #pdf-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    #pdf-container {
+      position: relative;
+      width: 90%;
+      height: 90%;
+      background: #111;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    #pdf-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #111;
+    }
+
+    #close-btn {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      z-index: 1001;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    #close-btn:hover {
+      background: rgba(0, 0, 0, 0.9);
+    }
+
+    /* iconos leaflet tipo div */
+    .emoji-icon {
+      background: transparent !important;
+      border: none !important;
+    }
+
+    .pais-vasco-label {
+      background: rgba(255, 255, 255, 0.8);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- Overlay para el PDF -->
+<div id="pdf-overlay">
+  <div id="pdf-container">
+    <button id="close-btn" title="Cerrar ficha">✕</button>
+    <iframe id="pdf-frame" src=""></iframe>
+  </div>
+</div>
+
+<!-- Leaflet JS -->
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  crossorigin=""
+></script>
+
+<script>
+  // Nombre exacto del PDF en la misma carpeta
+  const PDF_FILE = "Resumen de fichas.pdf";
+
+  // Lista de iniciativas (páginas tal como están en el PDF)
+  const iniciativas = [
+    // Elorrio (ajustadas y separadas)
+    { name: "Belaze (Elorrio)",                     lat: 43.135,      lng: -2.560,      page: 1,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+    { name: "Delikatetxe (Elorrio)",                lat: 43.125,      lng: -2.530,      page: 2,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+
+    // Durango
+    { name: "Etartie Denda (Durango)",              lat: 43.171,      lng: -2.633,      page: 3,  hasVideo: true,  isCollaborative: true,  isMunicipality: false },
+
+    // Amorebieta
+    { name: "Ibarra Baserria (Amorebieta-Etxano)",  lat: 43.217,      lng: -2.733,      page: 4,  hasVideo: true,  isCollaborative: false, isMunicipality: false },
+
+    // Arrieta
+    { name: "Biortzartxu (Arrieta)",                lat: 43.366,      lng: -2.780,      page: 5,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+
+    // Gamiz-Fika y entorno
+    { name: "Itturbaltza (Gamiz-Fika / Mungia)",    lat: 43.323,      lng: -2.840,      page: 6,  hasVideo: true,  isCollaborative: false, isMunicipality: false },
+    { name: "Biolandare (Gamiz-Fika)",              lat: 43.308,      lng: -2.832,      page: 7,  hasVideo: true,  isCollaborative: false, isMunicipality: false },
+    { name: "Luramak Bio (Gamiz-Fika)",             lat: 43.304,      lng: -2.845,      page: 8,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+
+    { name: "Uribe Butroeko Sarea",                 lat: 43.354,      lng: -2.846,      page: 9,  hasVideo: false, isCollaborative: true,  isMunicipality: false },
+
+    // Maruri-Jatabe
+    { name: "Mustai Ortua (Maruri-Jatabe)",         lat: 43.383,      lng: -2.853,      page:10,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+    { name: "Germinados Kimuak (Maruri-Jatabe)",    lat: 43.389,      lng: -2.840,      page:11,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+
+    // Iparlore (Barrio Urizar, Lemoiz – aproximado)
+    { name: "Iparlore (Lemoiz)",                    lat: 43.414,      lng: -2.902,      page:12,  hasVideo: true,  isCollaborative: false, isMunicipality: false },
+
+    // Bermeo y costa
+    { name: "Serrats (Bermeo)",                     lat: 43.422,      lng: -2.718,      page:13,  hasVideo: true,  isCollaborative: false, isMunicipality: false },
+    { name: "Opescaya (Costa de Bizkaia)",          lat: 43.415,      lng: -2.735,      page:14,  hasVideo: false, isCollaborative: true,  isMunicipality: false },
+
+    // Área metropolitana
+    { name: "Kondimenta (Leioa)",                   lat: 43.320,      lng: -2.970,      page:15,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+
+    // Enkarterri (Ama Orea en Cezura 21 – aproximado en Karrantza)
+    { name: "Bizkaiberries (Galdames)",             lat: 43.250,      lng: -3.120,      page:16,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+    { name: "Ama Orea (Karrantza)",                 lat: 43.206,      lng: -3.364,      page:17,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+
+    // Orduña y ecosistema (con coordenadas afinadas)
+    // Ekoizpen = municipio (punto grande, con vídeo y color granate)
+    { name: "Ekoizpen (Municipio de Orduña)",       lat: 42.9958,     lng: -3.0112,     page:18,  hasVideo:true,  isCollaborative:false, isMunicipality:true  },
+
+    // Cocina municipal en Residencia Arkupea
+    { name: "Cocina Municipal de Orduña",           lat: 42.99253,    lng: -3.00934,    page:19,  hasVideo:false, isCollaborative:true,  isMunicipality:false },
+
+    // Bedarbide (aprox, cerca del casco urbano)
+    { name: "Bedarbide",                            lat: 42.989,      lng: -3.018,      page:20,  hasVideo:false, isCollaborative:true,  isMunicipality:false },
+
+    // Belardi en Polígono La Rondina
+    { name: "Belardi (La Rondina, Orduña)",         lat: 42.98533,    lng: -3.01451,    page:21,  hasVideo:false, isCollaborative:true,  isMunicipality:false },
+
+    // Orduñako Zaporeak en la Oficina de Turismo (Foru Plaza 9)
+    { name: "Orduñako Zaporeak",                    lat: 43.01079,    lng: -3.02303,    page:22,  hasVideo:false, isCollaborative:true,  isMunicipality:false }
+  ];
+
+  // Crear mapa
+  const map = L.map("map").setView([43.2, -2.9], 9);
+
+  // Capa base OSM con municipios
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(map);
+
+  // Etiqueta "País Vasco"
+  const paisVascoControl = L.control({position: "bottomright"});
+  paisVascoControl.onAdd = function () {
+    const div = L.DomUtil.create("div", "pais-vasco-label");
+    div.innerText = "País Vasco";
+    return div;
+  };
+  paisVascoControl.addTo(map);
+
+  // Función para abrir la ficha (página concreta)
+  function abrirFicha(pagina) {
+    const overlay = document.getElementById("pdf-overlay");
+    const frame = document.getElementById("pdf-frame");
+    const hash = `#page=${pagina}&zoom=page-fit&view=FitH&toolbar=0&navpanes=0&scrollbar=0`;
+    frame.src = `${PDF_FILE}${hash}`;
+    overlay.style.display = "flex";
+  }
+
+  // Cerrar ficha
+  document.getElementById("close-btn").addEventListener("click", () => {
+    const overlay = document.getElementById("pdf-overlay");
+    const frame = document.getElementById("pdf-frame");
+    frame.src = "";
+    overlay.style.display = "none";
+  });
+
+  document.getElementById("pdf-overlay").addEventListener("click", (e) => {
+    if (e.target.id === "pdf-overlay") {
+      const frame = document.getElementById("pdf-frame");
+      e.currentTarget.style.display = "none";
+      frame.src = "";
+    }
+  });
+
+  // Función para crear un pin SVG de color y tamaño variable
+  function createPinIcon(color, size) {
+    const width = size;
+    const height = size * 1.4; // un poco más alto por la "gota"
+
+    const svg = `
+      <svg width="${width}" height="${height}" viewBox="0 0 24 34" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.4"/>
+          </filter>
+        </defs>
+        <g filter="url(#shadow)">
+          <path
+            d="M12 1 C7 1 3 5 3 10 C3 16 8 21 12 26 C16 21 21 16 21 10 C21 5 17 1 12 1 Z"
+            fill="${color}"
+            stroke="#333"
+            stroke-width="1"
+          />
+          <circle cx="12" cy="10" r="4" fill="white" />
+        </g>
+      </svg>
+    `;
+
+    return L.divIcon({
+      html: svg,
+      className: "emoji-icon",
+      iconSize: [width, height],
+      iconAnchor: [width / 2, height], // punta de la gota
+      popupAnchor: [0, -height]
+    });
+  }
+
+  // Añadir marcadores
+  iniciativas.forEach((item) => {
+    const color = item.hasVideo ? "#7b1433" : "#177a3b"; // granate / verde musgo
+
+    const size = item.isMunicipality
+      ? 38   // municipio (Ekoizpen)
+      : (item.isCollaborative ? 32 : 26);  // colaborativos / normales
+
+    const icon = createPinIcon(color, size);
+
+    const marker = L.marker([item.lat, item.lng], { icon }).addTo(map);
+
+    marker.bindTooltip(item.name, {
+      permanent: false,
+      direction: "top",
+      offset: [0, -4]
+    });
+
+    marker.on("click", () => abrirFicha(item.page));
+  });
+</script>
+</body>
+</html>
