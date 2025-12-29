@@ -44,11 +44,13 @@
       box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
       border-radius: 8px;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
     #pdf-frame {
+      flex: 1;
       width: 100%;
-      height: 100%;
       border: none;
       background: #111;
     }
@@ -84,6 +86,11 @@
       font-size: 12px;
       color: #333;
     }
+
+    .leaflet-tooltip {
+      font-size: 11px;
+      padding: 2px 5px;
+    }
   </style>
 </head>
 <body>
@@ -108,67 +115,64 @@
   // Nombre exacto del PDF en la misma carpeta
   const PDF_FILE = "Resumen de fichas.pdf";
 
-  // Lista de iniciativas (páginas tal como están en el PDF)
+  // Lista de iniciativas (páginas tal como están en el PDF actualizado)
+  // video = tiene vídeo (granate)
+  // collab = proyecto colaborativo (pin mediano)
+  // municipio = punto principal del municipio (pin grande)
   const iniciativas = [
-    // Elorrio (ajustadas y separadas)
-    { name: "Belaze (Elorrio)",                     lat: 43.135,      lng: -2.560,      page: 1,  hasVideo: false, isCollaborative: false, isMunicipality: false },
-    { name: "Delikatetxe (Elorrio)",                lat: 43.125,      lng: -2.530,      page: 2,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+    // Elorrio
+    { name: "Belaze (Elorrio)",                     lat: 43.135,   lng: -2.560,  page: 1,  video: false, collab: false, municipio: false },
+    { name: "Delikatetxe (Elorrio)",                lat: 43.125,   lng: -2.530,  page: 2,  video: false, collab: false, municipio: false },
 
     // Durango
-    { name: "Etartie Denda (Durango)",              lat: 43.171,      lng: -2.633,      page: 3,  hasVideo: true,  isCollaborative: true,  isMunicipality: false },
+    { name: "Etartie Denda (Durango)",              lat: 43.171,   lng: -2.633,  page: 3,  video: true,  collab: true,  municipio: false },
 
     // Amorebieta
-    { name: "Ibarra Baserria (Amorebieta-Etxano)",  lat: 43.217,      lng: -2.733,      page: 4,  hasVideo: true,  isCollaborative: false, isMunicipality: false },
+    { name: "Ibarra Baserria (Amorebieta-Etxano)",  lat: 43.217,   lng: -2.733,  page: 4,  video: true,  collab: false, municipio: false },
 
     // Arrieta
-    { name: "Biortzartxu (Arrieta)",                lat: 43.366,      lng: -2.780,      page: 5,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+    { name: "Biortzartxu (Arrieta)",                lat: 43.366,   lng: -2.780,  page: 5,  video: false, collab: false, municipio: false },
 
     // Gamiz-Fika y entorno
-    { name: "Itturbaltza (Gamiz-Fika / Mungia)",    lat: 43.323,      lng: -2.840,      page: 6,  hasVideo: true,  isCollaborative: false, isMunicipality: false },
-    { name: "Biolandare (Gamiz-Fika)",              lat: 43.308,      lng: -2.832,      page: 7,  hasVideo: true,  isCollaborative: false, isMunicipality: false },
-    { name: "Luramak Bio (Gamiz-Fika)",             lat: 43.304,      lng: -2.845,      page: 8,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+    { name: "Itturbaltza (Gamiz-Fika / Mungia)",    lat: 43.323,   lng: -2.840,  page: 6,  video: true,  collab: false, municipio: false },
+    { name: "Biolandare (Gamiz-Fika)",              lat: 43.308,   lng: -2.832,  page: 7,  video: true,  collab: false, municipio: false },
+    { name: "Luramak Bio (Gamiz-Fika)",             lat: 43.304,   lng: -2.845,  page: 8,  video: false, collab: false, municipio: false },
 
-    { name: "Uribe Butroeko Sarea",                 lat: 43.354,      lng: -2.846,      page: 9,  hasVideo: false, isCollaborative: true,  isMunicipality: false },
+    { name: "Uribe Butroeko Sarea",                 lat: 43.354,   lng: -2.846,  page: 9,  video: false, collab: true,  municipio: false },
 
     // Maruri-Jatabe
-    { name: "Mustai Ortua (Maruri-Jatabe)",         lat: 43.383,      lng: -2.853,      page:10,  hasVideo: false, isCollaborative: false, isMunicipality: false },
-    { name: "Germinados Kimuak (Maruri-Jatabe)",    lat: 43.389,      lng: -2.840,      page:11,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+    { name: "Mustai Ortua (Maruri-Jatabe)",         lat: 43.383,   lng: -2.853,  page:10,  video: false, collab: false, municipio: false },
+    { name: "Germinados Kimuak (Maruri-Jatabe)",    lat: 43.389,   lng: -2.840,  page:11,  video: false, collab: false, municipio: false },
 
-    // Iparlore (Barrio Urizar, Lemoiz – aproximado)
-    { name: "Iparlore (Lemoiz)",                    lat: 43.414,      lng: -2.902,      page:12,  hasVideo: true,  isCollaborative: false, isMunicipality: false },
+    // Iparlore (Barrio Urizar, Lemoiz – aprox)
+    { name: "Iparlore (Lemoiz)",                    lat: 43.414,   lng: -2.902,  page:12,  video: true,  collab: false, municipio: false },
 
     // Bermeo y costa
-    { name: "Serrats (Bermeo)",                     lat: 43.422,      lng: -2.718,      page:13,  hasVideo: true,  isCollaborative: false, isMunicipality: false },
-    { name: "Opescaya (Costa de Bizkaia)",          lat: 43.415,      lng: -2.735,      page:14,  hasVideo: false, isCollaborative: true,  isMunicipality: false },
+    { name: "Serrats (Bermeo)",                     lat: 43.422,   lng: -2.718,  page:13,  video: true,  collab: false, municipio: false },
+    { name: "Opescaya (Costa de Bizkaia)",          lat: 43.415,   lng: -2.735,  page:14,  video: false, collab: true,  municipio: false },
 
-    // Área metropolitana
-    { name: "Kondimenta (Leioa)",                   lat: 43.320,      lng: -2.970,      page:15,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+    // LANEKO
+    { name: "Laneko S. Coop.",                      lat: 43.320,   lng: -2.525,  page:15,  video: false, collab: true,  municipio: false },
 
-    // Enkarterri (Ama Orea en Cezura 21 – aproximado en Karrantza)
-    { name: "Bizkaiberries (Galdames)",             lat: 43.250,      lng: -3.120,      page:16,  hasVideo: false, isCollaborative: false, isMunicipality: false },
-    { name: "Ama Orea (Karrantza)",                 lat: 43.206,      lng: -3.364,      page:17,  hasVideo: false, isCollaborative: false, isMunicipality: false },
+    // Área metropolitana / Enkarterri
+    { name: "Kondimenta (Leioa)",                   lat: 43.320,   lng: -2.970,  page:16,  video: false, collab: false, municipio: false },
+    { name: "Bizkaiberries (Galdames)",             lat: 43.250,   lng: -3.120,  page:17,  video: false, collab: false, municipio: false },
 
-    // Orduña y ecosistema (con coordenadas afinadas)
-    // Ekoizpen = municipio (punto grande, con vídeo y color granate)
-    { name: "Ekoizpen (Municipio de Orduña)",       lat: 42.9958,     lng: -3.0112,     page:18,  hasVideo:true,  isCollaborative:false, isMunicipality:true  },
+    // Ama Orea (Cezura 21, Karrantza – aprox)
+    { name: "Ama Orea (Karrantza)",                 lat: 43.206,   lng: -3.364,  page:18,  video: false, collab: false, municipio: false },
 
-    // Cocina municipal en Residencia Arkupea
-    { name: "Cocina Municipal de Orduña",           lat: 42.99253,    lng: -3.00934,    page:19,  hasVideo:false, isCollaborative:true,  isMunicipality:false },
+    // Orduña y ecosistema
+    { name: "Ekoizpen (Municipio de Orduña)",       lat: 42.9958,  lng: -3.0112, page:19,  video: true,  collab: false, municipio: true  },
 
-    // Bedarbide (aprox, cerca del casco urbano)
-    { name: "Bedarbide",                            lat: 42.989,      lng: -3.018,      page:20,  hasVideo:false, isCollaborative:true,  isMunicipality:false },
-
-    // Belardi en Polígono La Rondina
-    { name: "Belardi (La Rondina, Orduña)",         lat: 42.98533,    lng: -3.01451,    page:21,  hasVideo:false, isCollaborative:true,  isMunicipality:false },
-
-    // Orduñako Zaporeak en la Oficina de Turismo (Foru Plaza 9)
-    { name: "Orduñako Zaporeak",                    lat: 43.01079,    lng: -3.02303,    page:22,  hasVideo:false, isCollaborative:true,  isMunicipality:false }
+    { name: "Cocina Municipal de Orduña",           lat: 42.99253, lng: -3.00934,page:20,  video: false, collab: true,  municipio: false },
+    { name: "Bedarbide",                            lat: 42.989,   lng: -3.018,  page:21,  video: false, collab: true,  municipio: false },
+    { name: "Belardi (La Rondina, Orduña)",         lat: 42.98533, lng: -3.01451,page:22,  video: false, collab: true,  municipio: false },
+    { name: "Orduñako Zaporeak",                    lat: 43.01079, lng: -3.02303,page:23,  video: false, collab: true,  municipio: false }
   ];
 
   // Crear mapa
   const map = L.map("map").setView([43.2, -2.9], 9);
 
-  // Capa base OSM con municipios
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 18,
     attribution: "&copy; OpenStreetMap contributors"
@@ -183,35 +187,31 @@
   };
   paisVascoControl.addTo(map);
 
-  // Función para abrir la ficha (página concreta)
-  function abrirFicha(pagina) {
-    const overlay = document.getElementById("pdf-overlay");
-    const frame = document.getElementById("pdf-frame");
-    const hash = `#page=${pagina}&zoom=page-fit&view=FitH&toolbar=0&navpanes=0&scrollbar=0`;
-    frame.src = `${PDF_FILE}${hash}`;
+  // Overlay PDF
+  const overlay   = document.getElementById("pdf-overlay");
+  const pdfFrame  = document.getElementById("pdf-frame");
+  const closeBtn  = document.getElementById("close-btn");
+
+  function abrirFicha(page) {
+    const hash = `#page=${page}&zoom=page-fit&view=FitH&toolbar=0&navpanes=0&scrollbar=0`;
+    pdfFrame.src = encodeURI(PDF_FILE + hash);
     overlay.style.display = "flex";
   }
 
-  // Cerrar ficha
-  document.getElementById("close-btn").addEventListener("click", () => {
-    const overlay = document.getElementById("pdf-overlay");
-    const frame = document.getElementById("pdf-frame");
-    frame.src = "";
+  function cerrarFicha() {
     overlay.style.display = "none";
+    pdfFrame.src = "";
+  }
+
+  closeBtn.addEventListener("click", cerrarFicha);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) cerrarFicha();
   });
 
-  document.getElementById("pdf-overlay").addEventListener("click", (e) => {
-    if (e.target.id === "pdf-overlay") {
-      const frame = document.getElementById("pdf-frame");
-      e.currentTarget.style.display = "none";
-      frame.src = "";
-    }
-  });
-
-  // Función para crear un pin SVG de color y tamaño variable
+  // Generar pin SVG de color y tamaño variables
   function createPinIcon(color, size) {
     const width = size;
-    const height = size * 1.4; // un poco más alto por la "gota"
+    const height = size * 1.4;
 
     const svg = `
       <svg width="${width}" height="${height}" viewBox="0 0 24 34" xmlns="http://www.w3.org/2000/svg">
@@ -236,18 +236,17 @@
       html: svg,
       className: "emoji-icon",
       iconSize: [width, height],
-      iconAnchor: [width / 2, height], // punta de la gota
+      iconAnchor: [width / 2, height],
       popupAnchor: [0, -height]
     });
   }
 
   // Añadir marcadores
   iniciativas.forEach((item) => {
-    const color = item.hasVideo ? "#7b1433" : "#177a3b"; // granate / verde musgo
-
-    const size = item.isMunicipality
-      ? 38   // municipio (Ekoizpen)
-      : (item.isCollaborative ? 32 : 26);  // colaborativos / normales
+    const color = item.video ? "#7b1433" : "#177a3b"; // granate / verde musgo
+    const size = item.municipio
+      ? 38  // municipio grande
+      : (item.collab ? 32 : 26); // colaborativos / normales
 
     const icon = createPinIcon(color, size);
 
