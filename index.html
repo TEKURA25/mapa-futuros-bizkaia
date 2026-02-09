@@ -190,10 +190,12 @@
   const closeBtn  = document.getElementById("close-btn");
 
   function abrirFicha(page) {
-    const hash = `#page=${page}&zoom=page-fit&view=FitH&toolbar=0&navpanes=0&scrollbar=0`;
-    pdfFrame.src = encodeURI(PDF_FILE + hash);
-    overlay.style.display = "flex";
-  }
+  // Abrimos el visor PDF.js (viewer.html) con parámetros
+  // encodeURIComponent por si hay espacios en el nombre del PDF
+  const url = `viewer.html?file=${encodeURIComponent(PDF_FILE)}&page=${encodeURIComponent(page)}`;
+  pdfFrame.src = url;
+  overlay.style.display = "flex";
+}
 
   function cerrarFicha() {
     overlay.style.display = "none";
