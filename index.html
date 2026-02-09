@@ -189,13 +189,20 @@
   const pdfFrame  = document.getElementById("pdf-frame");
   const closeBtn  = document.getElementById("close-btn");
 
-  function abrirFicha(page) {
-  // Abrimos el visor PDF.js (viewer.html) con parámetros
-  // encodeURIComponent por si hay espacios en el nombre del PDF
+ function abrirFicha(page) {
   const url = `viewer.html?file=${encodeURIComponent(PDF_FILE)}&page=${encodeURIComponent(page)}`;
+
+  // En pantallas pequeñas (móvil): abrir el visor a página completa (sin iframe)
+  if (window.matchMedia("(max-width: 768px)").matches) {
+    window.location.href = url;
+    return;
+  }
+
+  // En escritorio: overlay con iframe
   pdfFrame.src = url;
   overlay.style.display = "flex";
 }
+
 
   function cerrarFicha() {
     overlay.style.display = "none";
