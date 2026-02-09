@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ficha</title>
+  <style>
+    html, body { margin:0; padding:0; height:100%; background:#111; color:#fff; font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+    #topbar {
+      position: fixed; top: 0; left: 0; right: 0; height: 48px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 10px; background: rgba(0,0,0,0.65); z-index: 10;
+      backdrop-filter: blur(6px);
+    }
+    #btnClose {
+      border: 0; border-radius: 10px; padding: 8px 10px;
+      background: rgba(255,255,255,0.12); color:#fff; font-size: 14px;
+    }
+    #title { font-size: 14px; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #wrap { padding-top: 48px; height: calc(100% - 48px); overflow: auto; -webkit-overflow-scrolling: touch; }
+    #canvas { display:block; margin: 0 auto; background:#111; }
+    #msg { padding: 16px; max-width: 900px; margin: 0 auto; opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div id="topbar">
+    <button id="btnClose" type="button">Volver al mapa</button>
+    <div id="title">Cargando…</div>
+  </div>
+
+  <div id="wrap">
+    <div id="msg"></div>
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    // --- Parámetros ---
+    const params = new URLSearchParams(location.search);
+    const file = params.get("file") || "Resumen de fichas.pdf";
+    const pageNumber = Math.max(1, parseInt(params.get("page") || "1", 10));
+
+    const titleEl = document.getElementById("title");
+    const msgEl = document.getElementById("msg");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const wrap = document.getElementById("wrap");
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+    function showMsg(text) {
+      msgEl.textContent = text;
+    }
+
+    async function render() {
+      titleEl.textContent = `Ficha — pág. ${pageNumber}`;
+      showMsg("");
+
+      let pdf;
+      try {
+        pdf = await pdfjsLib.getDocument(file).promise;
+      } catch (e) {
+        showMsg("No he podido cargar el PDF. Verifica que el archivo existe en el repositorio y el nombre coincide.");
+        console.error(e);
+        return;
+      }
+
+      const total = pdf.numPages;
+      const p = Math.min(pageNumber, total);
+
+      let page;
+      try {
+        page = await pdf.getPage(p);
+      } catch (e) {
+        showMsg("No he podido abrir la página solicitada.");
+        console.error(e);
+        return;
+      }
+
+      // Escala para ancho de pantalla (móvil/desktop)
+      const viewport1 = page.getViewport({ scale: 1 });
+      const targetWidth = Math.min(1100, wrap.clientWidth - 20);
+      const scale = targetWidth / viewport1.width;
+      const viewport = page.getViewport({ scale });
+
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      // baja un pelín para que no tape el topbar
+      wrap.scrollTop = 0;
+      titleEl.textContent = `Ficha — pág. ${p}/${total}`;
+    }
+
+    document.getElementById("btnClose").addEventListener("click", () => {
+      // vuelve al mapa
+      if (history.length > 1) history.back();
+      else location.href = "index.html";
+    });
+
+    window.addEventListener("resize", () => render());
+
+    render();
+  </script>
+</body>
+</html>
