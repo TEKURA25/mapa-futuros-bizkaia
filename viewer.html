@@ -12,7 +12,7 @@
       padding: 0 10px; background: rgba(0,0,0,0.65); z-index: 10;
       backdrop-filter: blur(6px);
     }
-    #btnClose {
+    #btnClose, #btnZoomOut, #btnZoomIn {
       border: 0; border-radius: 10px; padding: 8px 10px;
       background: rgba(255,255,255,0.12); color:#fff; font-size: 14px;
     }
@@ -24,7 +24,9 @@
 </head>
 <body>
   <div id="topbar">
-    <button id="btnClose" type="button">Volver al mapa</button>
+    <button id="btnClose" type="button">Volver</button>
+    <button id="btnZoomOut" type="button" aria-label="Zoom -">−</button>
+    <button id="btnZoomIn" type="button" aria-label="Zoom +">+</button>
     <div id="title">Cargando…</div>
   </div>
 
@@ -35,74 +37,104 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
-    // --- Parámetros ---
     const params = new URLSearchParams(location.search);
     const file = params.get("file") || "Resumen de fichas.pdf";
-    const pageNumber = Math.max(1, parseInt(params.get("page") || "1", 10));
+    const requestedPage = Math.max(1, parseInt(params.get("page") || "1", 10));
 
     const titleEl = document.getElementById("title");
     const msgEl = document.getElementById("msg");
     const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: false });
     const wrap = document.getElementById("wrap");
+
+    // Zoom adicional controlado por botones (sobre el ajuste automático a pantalla)
+    let extraZoom = 1.0; // 1 = normal; 1.2 / 1.4 etc.
 
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-    function showMsg(text) {
-      msgEl.textContent = text;
-    }
+    function showMsg(text) { msgEl.textContent = text; }
 
-    async function render() {
-      titleEl.textContent = `Ficha — pág. ${pageNumber}`;
-      showMsg("");
+    let pdfDoc = null;
+    let currentPage = null;
 
-      let pdf;
+    async function loadPdf() {
       try {
-        pdf = await pdfjsLib.getDocument(file).promise;
+        pdfDoc = await pdfjsLib.getDocument(file).promise;
       } catch (e) {
-        showMsg("No he podido cargar el PDF. Verifica que el archivo existe en el repositorio y el nombre coincide.");
+        showMsg("No he podido cargar el PDF. Verifica que existe y que el nombre coincide exactamente.");
         console.error(e);
         return;
       }
+      currentPage = Math.min(requestedPage, pdfDoc.numPages);
+      await render();
+    }
 
-      const total = pdf.numPages;
-      const p = Math.min(pageNumber, total);
+    async function render() {
+      if (!pdfDoc) return;
+
+      titleEl.textContent = `Ficha — pág. ${currentPage}/${pdfDoc.numPages}`;
+      showMsg("");
 
       let page;
       try {
-        page = await pdf.getPage(p);
+        page = await pdfDoc.getPage(currentPage);
       } catch (e) {
         showMsg("No he podido abrir la página solicitada.");
         console.error(e);
         return;
       }
 
-      // Escala para ancho de pantalla (móvil/desktop)
+      // 1) Escala para encajar en ancho disponible (CSS px)
       const viewport1 = page.getViewport({ scale: 1 });
-      const targetWidth = Math.min(1100, wrap.clientWidth - 20);
-      const scale = targetWidth / viewport1.width;
-      const viewport = page.getViewport({ scale });
+      const targetWidthCss = Math.min(1100, wrap.clientWidth - 20);
+      const fitScale = (targetWidthCss / viewport1.width) * extraZoom;
+      const viewportCss = page.getViewport({ scale: fitScale });
 
-      canvas.width = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
+      // 2) Render en alta resolución real (pixeles de dispositivo)
+      // Limito DPR para no reventar memoria en móviles muy bestias
+      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
 
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      // Tamaño real del canvas en píxeles
+      canvas.width  = Math.floor(viewportCss.width * dpr);
+      canvas.height = Math.floor(viewportCss.height * dpr);
 
-      // baja un pelín para que no tape el topbar
+      // Tamaño visible del canvas en CSS píxeles
+      canvas.style.width  = Math.floor(viewportCss.width) + "px";
+      canvas.style.height = Math.floor(viewportCss.height) + "px";
+
+      // Escalo el contexto para dibujar nítido
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+
+      // Renderiza usando el viewport CSS (porque ya escalamos con dpr en el contexto)
+      await page.render({ canvasContext: ctx, viewport: viewportCss }).promise;
+
       wrap.scrollTop = 0;
-      titleEl.textContent = `Ficha — pág. ${p}/${total}`;
     }
 
     document.getElementById("btnClose").addEventListener("click", () => {
-      // vuelve al mapa
       if (history.length > 1) history.back();
       else location.href = "index.html";
     });
 
-    window.addEventListener("resize", () => render());
+    document.getElementById("btnZoomIn").addEventListener("click", async () => {
+      extraZoom = Math.min(extraZoom + 0.15, 2.2);
+      await render();
+    });
 
-    render();
+    document.getElementById("btnZoomOut").addEventListener("click", async () => {
+      extraZoom = Math.max(extraZoom - 0.15, 0.8);
+      await render();
+    });
+
+    let resizeTimer = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => render(), 120);
+    });
+
+    loadPdf();
   </script>
 </body>
 </html>
